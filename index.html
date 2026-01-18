@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro IPTV Player v2.1 (Fixed)</title>
+    <title>Pro IPTV Player v2.2 (Ultra Fix)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
@@ -72,7 +72,7 @@
             font-size: 0.95rem;
         }
         #countryList li.active { background: #1f6feb; color: white; }
-        #countryList li.hidden { display: none; }
+        #countryList li.hidden { display: none !important; }
 
         /* Main Content */
         .main-content {
@@ -131,7 +131,7 @@
             transition: 0.2s;
         }
 
-        .channel-row:hover { background: #30363d; }
+        .channel-row:hover { background: #30363d; border-left: 4px solid var(--accent-color); }
 
         .avatar {
             width: 40px; height: 40px; border-radius: 50%;
@@ -142,7 +142,7 @@
         .channel-info h4 { font-size: 1rem; margin-bottom: 3px; }
         .channel-info p { font-size: 0.8rem; color: var(--text-dim); }
 
-        /* Player Modal */
+        /* Modal & Error handling */
         .modal {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.95);
@@ -162,6 +162,7 @@
             border: 1px solid var(--error-red);
             text-align: center;
             display: none;
+            font-size: 0.9rem;
         }
 
         .close-btn {
@@ -176,7 +177,6 @@
             color: white;
             padding: 15px 30px; border-radius: 30px;
             z-index: 3000; display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
         .sidebar-overlay {
@@ -184,20 +184,17 @@
             background: rgba(0,0,0,0.5); z-index: 999;
         }
         .sidebar-overlay.active { display: block; }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="loader">Syncing Channels...</div>
+    <div id="loader">Channels Load Ho Rahe Hain...</div>
     <div class="sidebar-overlay" id="overlay"></div>
 
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2 style="color: var(--accent-color); margin-bottom: 10px;">🌍 Regions</h2>
-            <input type="text" id="countrySearch" placeholder="Filter countries...">
+            <input type="text" id="countrySearch" placeholder="Search country...">
         </div>
         <ul id="countryList">
             <li class="active" data-code="all" onclick="filterByCountry('all', this)">🌐 Global Channels</li>
@@ -209,6 +206,7 @@
             <button class="menu-toggle" id="menuBtn">☰</button>
             <input type="text" id="channelSearch" placeholder="Search by name or category...">
         </header>
+
         <div id="channelList" class="channel-list"></div>
     </main>
 
@@ -217,7 +215,10 @@
             <span class="close-btn" id="closeModal">&times;</span>
             <video id="videoPlayer" controls autoplay></video>
             <h3 id="nowPlaying" style="margin-top: 15px; text-align: center;">Channel Name</h3>
-            <div id="errorMessage" class="error-overlay">⚠️ Oops! This stream is currently unavailable. This might be due to CORS restrictions or a dead link.</div>
+            <div id="errorMessage" class="error-overlay">
+                ⚠️ <b>Mixed Content Blocked:</b> Yeh channel HTTP use kar raha hai.<br>
+                <span style="font-size: 0.8rem;">Sudhar: Browser settings mein "Insecure content" allow karein ya VPN try karein.</span>
+            </div>
         </div>
     </div>
 
@@ -244,15 +245,9 @@
                     fetch(API.streams).then(r => r.json()),
                     fetch(API.countries).then(r => r.json())
                 ]);
-                allChannels = c; 
-                allStreams = s; 
-                countries = cn;
-                renderCountries(); 
-                renderChannels();
-            } catch (e) { 
-                console.error(e);
-                alert("API connection failed. Please refresh."); 
-            }
+                allChannels = c; allStreams = s; countries = cn;
+                renderCountries(); renderChannels();
+            } catch (e) { alert("API Connection Error!"); }
             toggleLoader(false);
         }
 
@@ -260,10 +255,9 @@
         document.getElementById('countrySearch').addEventListener('input', function(e) {
             const term = e.target.value.toLowerCase();
             const items = document.querySelectorAll('#countryList li');
-            
             items.forEach(li => {
-                const text = li.textContent.toLowerCase();
-                if (text.includes(term)) {
+                const name = li.innerText.toLowerCase();
+                if (name.includes(term)) {
                     li.classList.remove('hidden');
                 } else {
                     li.classList.add('hidden');
@@ -293,12 +287,7 @@
                 const matchesCountry = currentCountry === 'all' || ch.country === currentCountry;
                 const matchesSearch = ch.name.toLowerCase().includes(query.toLowerCase());
                 return matchesCountry && matchesSearch && streamMap.has(ch.id);
-            }).slice(0, 150); // Increased limit slightly for better UX
-
-            if (filtered.length === 0) {
-                container.innerHTML = `<p style="text-align:center; padding:20px; color:var(--text-dim)">No working channels found for this selection.</p>`;
-                return;
-            }
+            }).slice(0, 150);
 
             filtered.forEach(ch => {
                 const stream = streamMap.get(ch.id);
@@ -316,6 +305,7 @@
             });
         }
 
+        // --- FIXED: Mixed Content & Proxy Logic ---
         function playStream(url, name) {
             const modal = document.getElementById('videoModal');
             const video = document.getElementById('videoPlayer');
@@ -325,40 +315,38 @@
             document.getElementById('nowPlaying').innerText = name;
             modal.style.display = 'flex';
 
-            if (hlsInstance) {
-                hlsInstance.destroy();
+            // Agar site HTTPS hai aur link HTTP, toh proxy ka use karein
+            let finalUrl = url;
+            if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+                // Hum corsproxy.io ka use kar rahe hain jo ki kaafi stable hai
+                finalUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                console.log("Using Proxy for HTTP stream:", finalUrl);
             }
 
-            // Purane code ki jagah ye use karein
-if (Hls.isSupported()) {
-    hlsInstance = new Hls({ 
-        manifestLoadingTimeOut: 20000,
-        fragLoadingTimeOut: 20000,
-        fragLoadingMaxRetry: 5,        // 5 baar koshish karega agar mismatch ho
-        fragLoadingRetryDelay: 2000,   // Har retry ke beech 2 sec ka gap
-        levelLoadingMaxRetry: 5,
-        enableWorker: true             // Background mein load karega taaki smooth chale
-    });
-    
-    hlsInstance.loadSource(url);
-    hlsInstance.attachMedia(video);
+            if (hlsInstance) hlsInstance.destroy();
 
-    // Ye event mismatch errors ko handle karne ke liye hai
-    hlsInstance.on(Hls.Events.ERROR, function (event, data) {
-        if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || 
-            data.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT) {
-            console.warn("Fragment load fail hua, retrying...");
-            hlsInstance.startLoad(); // Dubara koshish karo
-        }
-        if (data.fatal) {
-            document.getElementById('errorMessage').style.display = 'block';
-        }
-    });
-} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.addEventListener('error', () => {
-                    errorMsg.style.display = 'block';
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls({ 
+                    manifestLoadingTimeOut: 20000,
+                    fragLoadingMaxRetry: 8,
+                    fragLoadingRetryDelay: 2000,
+                    enableWorker: true
                 });
+                
+                hlsInstance.loadSource(finalUrl);
+                hlsInstance.attachMedia(video);
+
+                hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR) {
+                        console.warn("Retrying Fragment...");
+                        hlsInstance.startLoad();
+                    }
+                    if (data.fatal) {
+                        errorMsg.style.display = 'block';
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = finalUrl;
             }
         }
 
@@ -385,9 +373,7 @@ if (Hls.isSupported()) {
             document.getElementById('videoModal').style.display = 'none';
         };
 
-        function toggleLoader(show) { 
-            document.getElementById('loader').style.display = show ? 'block' : 'none'; 
-        }
+        function toggleLoader(show) { document.getElementById('loader').style.display = show ? 'block' : 'none'; }
 
         init();
     </script>
