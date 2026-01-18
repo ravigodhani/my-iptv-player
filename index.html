@@ -329,21 +329,32 @@
                 hlsInstance.destroy();
             }
 
-            if (Hls.isSupported()) {
-                hlsInstance = new Hls({ 
-                    manifestLoadingTimeOut: 15000,
-                    fragLoadingTimeOut: 15000 
-                });
-                hlsInstance.loadSource(url);
-                hlsInstance.attachMedia(video);
-                
-                hlsInstance.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        errorMsg.style.display = 'block';
-                        console.error("HLS fatal error:", data.type);
-                    }
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Purane code ki jagah ye use karein
+if (Hls.isSupported()) {
+    hlsInstance = new Hls({ 
+        manifestLoadingTimeOut: 20000,
+        fragLoadingTimeOut: 20000,
+        fragLoadingMaxRetry: 5,        // 5 baar koshish karega agar mismatch ho
+        fragLoadingRetryDelay: 2000,   // Har retry ke beech 2 sec ka gap
+        levelLoadingMaxRetry: 5,
+        enableWorker: true             // Background mein load karega taaki smooth chale
+    });
+    
+    hlsInstance.loadSource(url);
+    hlsInstance.attachMedia(video);
+
+    // Ye event mismatch errors ko handle karne ke liye hai
+    hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+        if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || 
+            data.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT) {
+            console.warn("Fragment load fail hua, retrying...");
+            hlsInstance.startLoad(); // Dubara koshish karo
+        }
+        if (data.fatal) {
+            document.getElementById('errorMessage').style.display = 'block';
+        }
+    });
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
                 video.addEventListener('error', () => {
                     errorMsg.style.display = 'block';
