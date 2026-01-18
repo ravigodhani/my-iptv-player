@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro IPTV List Player</title>
+    <title>Pro IPTV Player v2</title>
     
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
@@ -15,13 +15,13 @@
             --accent-color: #58a6ff;
             --text-main: #c9d1d9;
             --text-dim: #8b949e;
-            --glass: rgba(255, 255, 255, 0.05);
+            --error-red: #ff7b72;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-body);
             color: var(--text-main);
             height: 100vh;
@@ -29,21 +29,32 @@
             overflow: hidden;
         }
 
-        /* Sidebar */
+        /* Responsive Sidebar */
         .sidebar {
             width: 300px;
             background: var(--sidebar-bg);
             border-right: 1px solid #30363d;
             display: flex;
             flex-direction: column;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        /* Mobile Mobile Sidebar logic */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                height: 100%;
+                transform: translateX(-100%);
+            }
+            .sidebar.active { transform: translateX(0); }
         }
 
         .sidebar-header { padding: 20px; border-bottom: 1px solid #30363d; }
-        .sidebar-header h2 { font-size: 1.1rem; margin-bottom: 15px; color: var(--accent-color); }
-
+        
         #countrySearch {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             border: 1px solid #30363d;
             background: var(--bg-body);
@@ -51,134 +62,136 @@
             outline: none;
         }
 
-        #countryList {
-            list-style: none;
-            overflow-y: auto;
-            flex-grow: 1;
-        }
-
+        #countryList { list-style: none; overflow-y: auto; flex-grow: 1; }
         #countryList li {
-            padding: 12px 20px;
+            padding: 14px 20px;
             cursor: pointer;
             border-bottom: 1px solid #21262d;
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
-
-        #countryList li:hover { background: var(--list-item-bg); }
         #countryList li.active { background: #1f6feb; color: white; }
 
-        /* Main Section */
+        /* Main Content */
         .main-content {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
-            background: #0d1117;
+            width: 100%;
         }
 
         .header {
-            padding: 20px;
+            padding: 15px 20px;
             background: var(--sidebar-bg);
             border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
+        /* Hamburger Menu Button */
+        .menu-toggle {
+            display: none;
+            background: var(--list-item-bg);
+            border: none;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) { .menu-toggle { display: block; } }
+
         #channelSearch {
-            width: 100%;
+            flex-grow: 1;
             padding: 12px 20px;
-            border-radius: 20px;
+            border-radius: 25px;
             border: 1px solid #30363d;
             background: var(--bg-body);
             color: white;
-            font-size: 1rem;
         }
 
-        /* Channel List View */
+        /* Channel List */
         .channel-list {
             padding: 10px;
             overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            flex-grow: 1;
         }
 
         .channel-row {
             display: flex;
             align-items: center;
-            padding: 12px 15px;
+            padding: 15px;
             background: var(--list-item-bg);
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
+            margin-bottom: 8px;
             transition: 0.2s;
-            border: 1px solid transparent;
         }
 
-        .channel-row:hover {
-            border-color: var(--accent-color);
-            background: #30363d;
-        }
+        .channel-row:hover { background: #30363d; }
 
-        /* Avatar Circle */
         .avatar {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: var(--accent-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-            color: white;
-            margin-right: 15px;
-            flex-shrink: 0;
-            text-transform: uppercase;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: white; margin-right: 15px; flex-shrink: 0;
         }
 
-        .channel-info { flex-grow: 1; overflow: hidden; }
-        .channel-info h4 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .channel-info p { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+        .channel-info h4 { font-size: 1rem; margin-bottom: 3px; }
+        .channel-info p { font-size: 0.8rem; color: var(--text-dim); }
 
-        /* Video Modal */
+        /* Modal & Error Handling */
         .modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.9);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 2000;
         }
 
-        .modal-content { width: 90%; max-width: 900px; text-align: center; }
-        video { width: 100%; border-radius: 12px; background: #000; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-        .close-btn { position: absolute; top: 20px; right: 30px; font-size: 2.5rem; color: white; cursor: pointer; }
+        .modal-content { width: 95%; max-width: 960px; position: relative; }
+        
+        #videoPlayer { width: 100%; border-radius: 8px; background: #000; }
+
+        .error-overlay {
+            color: var(--error-red);
+            margin-top: 15px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+
+        .close-btn {
+            position: absolute; top: -50px; right: 0;
+            font-size: 2rem; color: white; cursor: pointer;
+        }
 
         #loader {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #238636;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 4px;
-            display: none;
-            font-size: 0.8rem;
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--accent-color);
+            padding: 15px 30px; border-radius: 30px;
+            z-index: 3000; display: none;
         }
 
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
+        /* Overlay for mobile sidebar */
+        .sidebar-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 999;
+        }
+        .sidebar-overlay.active { display: block; }
     </style>
 </head>
 <body>
 
-    <div id="loader">Syncing Data...</div>
+    <div id="loader">Channels Load Ho Rahe Hain...</div>
+    <div class="sidebar-overlay" id="overlay"></div>
 
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h2>🌍 Regions</h2>
-            <input type="text" id="countrySearch" placeholder="Search countries...">
+            <h2 style="color: var(--accent-color); margin-bottom: 10px;">🌍 Regions</h2>
+            <input type="text" id="countrySearch" placeholder="Search country...">
         </div>
         <ul id="countryList">
             <li class="active" onclick="filterByCountry('all', this)">🌐 Global Channels</li>
@@ -186,19 +199,20 @@
     </aside>
 
     <main class="main-content">
-        <div class="header">
-            <input type="text" id="channelSearch" placeholder="Find a channel or category...">
-        </div>
+        <header class="header">
+            <button class="menu-toggle" id="menuBtn">☰</button>
+            <input type="text" id="channelSearch" placeholder="Search by name or category...">
+        </header>
 
-        <div id="channelList" class="channel-list">
-            </div>
+        <div id="channelList" class="channel-list"></div>
     </main>
 
     <div id="videoModal" class="modal">
-        <span class="close-btn">&times;</span>
         <div class="modal-content">
+            <span class="close-btn" id="closeModal">&times;</span>
             <video id="videoPlayer" controls autoplay></video>
-            <h2 id="nowPlaying" style="margin-top: 15px; font-weight: 400;">Channel Name</h2>
+            <h3 id="nowPlaying" style="margin-top: 15px; text-align: center;">Channel Name</h3>
+            <div id="errorMessage" class="error-overlay">⚠️ Error: Stream unavailable (CORS or Dead Link)</div>
         </div>
     </div>
 
@@ -207,6 +221,7 @@
         let allStreams = [];
         let countries = [];
         let currentCountry = 'all';
+        let hls = null;
 
         const API = {
             channels: 'https://iptv-org.github.io/api/channels.json',
@@ -214,28 +229,19 @@
             countries: 'https://iptv-org.github.io/api/countries.json'
         };
 
-        // Colors for Avatars
-        const avatarColors = ['#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb'];
+        const colors = ['#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#aecbfa', '#d7aefb'];
 
         async function init() {
             toggleLoader(true);
             try {
-                const [cRes, sRes, cntRes] = await Promise.all([
-                    fetch(API.channels),
-                    fetch(API.streams),
-                    fetch(API.countries)
+                const [c, s, cn] = await Promise.all([
+                    fetch(API.channels).then(r => r.json()),
+                    fetch(API.streams).then(r => r.json()),
+                    fetch(API.countries).then(r => r.json())
                 ]);
-
-                allChannels = await cRes.json();
-                allStreams = await sRes.json();
-                countries = await cntRes.json();
-
-                renderCountries();
-                renderChannels();
-            } catch (err) {
-                console.error(err);
-                alert("Data loading failed!");
-            }
+                allChannels = c; allStreams = s; countries = cn;
+                renderCountries(); renderChannels();
+            } catch (e) { alert("API Connection Error!"); }
             toggleLoader(false);
         }
 
@@ -244,7 +250,7 @@
             countries.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
                 const li = document.createElement('li');
                 li.innerHTML = `<span>${c.flag || '🏳️'}</span> ${c.name}`;
-                li.onclick = () => filterByCountry(c.code, li);
+                li.onclick = () => { filterByCountry(c.code, li); toggleSidebar(); };
                 list.appendChild(li);
             });
         }
@@ -252,7 +258,6 @@
         function renderChannels(query = '') {
             const container = document.getElementById('channelList');
             container.innerHTML = '';
-
             const streamMap = new Map(allStreams.map(s => [s.channel, s]));
 
             const filtered = allChannels.filter(ch => {
@@ -263,18 +268,14 @@
 
             filtered.forEach(ch => {
                 const stream = streamMap.get(ch.id);
-                const firstLetter = ch.name.charAt(0);
-                const randomColor = avatarColors[ch.name.length % avatarColors.length];
-
                 const row = document.createElement('div');
                 row.className = 'channel-row';
                 row.innerHTML = `
-                    <div class="avatar" style="background-color: ${randomColor}">${firstLetter}</div>
+                    <div class="avatar" style="background:${colors[ch.name.length % colors.length]}">${ch.name[0]}</div>
                     <div class="channel-info">
                         <h4>${ch.name}</h4>
                         <p>${ch.categories[0] || 'General'} • ${ch.country}</p>
                     </div>
-                    <div style="color: var(--accent-color)">▶</div>
                 `;
                 row.onclick = () => playStream(stream.url, ch.name);
                 container.appendChild(row);
@@ -284,16 +285,35 @@
         function playStream(url, name) {
             const modal = document.getElementById('videoModal');
             const video = document.getElementById('videoPlayer');
+            const errorMsg = document.getElementById('errorMessage');
+            
+            errorMsg.style.display = 'none';
             document.getElementById('nowPlaying').innerText = name;
             modal.style.display = 'flex';
 
+            if (hls) hls.destroy();
+
             if (Hls.isSupported()) {
-                const hls = new Hls();
+                hls = new Hls({ manifestLoadingTimeOut: 10000 });
                 hls.loadSource(url);
                 hls.attachMedia(video);
-            } else {
+                
+                // Error Handling
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        errorMsg.style.display = 'block';
+                        console.error("HLS Fatal Error", data);
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
             }
+        }
+
+        // Sidebar & UI Logic
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
         }
 
         function filterByCountry(code, el) {
@@ -303,25 +323,17 @@
             renderChannels();
         }
 
+        document.getElementById('menuBtn').onclick = toggleSidebar;
+        document.getElementById('overlay').onclick = toggleSidebar;
         document.getElementById('channelSearch').oninput = (e) => renderChannels(e.target.value);
         
-        document.getElementById('countrySearch').oninput = (e) => {
-            const val = e.target.value.toLowerCase();
-            document.querySelectorAll('#countryList li').forEach((li, i) => {
-                if(i===0) return;
-                li.style.display = li.innerText.toLowerCase().includes(val) ? 'flex' : 'none';
-            });
-        };
-
-        document.querySelector('.close-btn').onclick = () => {
-            const video = document.getElementById('videoPlayer');
-            video.pause();
+        document.getElementById('closeModal').onclick = () => {
+            document.getElementById('videoPlayer').pause();
+            if(hls) hls.destroy();
             document.getElementById('videoModal').style.display = 'none';
         };
 
-        function toggleLoader(show) {
-            document.getElementById('loader').style.display = show ? 'block' : 'none';
-        }
+        function toggleLoader(show) { document.getElementById('loader').style.display = show ? 'block' : 'none'; }
 
         init();
     </script>
